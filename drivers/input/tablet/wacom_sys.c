@@ -231,6 +231,15 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->x_max =
 								get_unaligned_le16(&report[i + 8]);
 							i += 15;
+						} else if (features->type == BAMBOO_PTC) {
+							/* need to reset back */
+							features->pktlen = WACOM_PKGLEN_BBCREATE;
+							features->device_type = BTN_TOOL_DOUBLETAP;
+							features->x_phy =
+								get_unaligned_le16(&report[i + 5]);
+							features->x_max =
+								get_unaligned_le16(&report[i + 8]);
+							i += 15;
 						} else {
 							features->x_max =
 								get_unaligned_le16(&report[i + 3]);
@@ -246,6 +255,8 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->pktlen = WACOM_PKGLEN_GRAPHIRE;
 						if (features->type == BAMBOO_PT)
 							features->pktlen = WACOM_PKGLEN_BBFUN;
+						if (features->type == BAMBOO_PTC)
+							features->pktlen = WACOM_PKGLEN_INTUOS;
 						features->device_type = BTN_TOOL_PEN;
 						features->x_max =
 							get_unaligned_le16(&report[i + 3]);
@@ -283,6 +294,15 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->y_max =
 								get_unaligned_le16(&report[i + 6]);
 							i += 12;
+						} else if (features->type == BAMBOO_PTC) {
+							/* need to reset back */
+							features->pktlen = WACOM_PKGLEN_BBCREATE;
+							features->device_type = BTN_TOOL_DOUBLETAP;
+							features->y_phy =
+								get_unaligned_le16(&report[i + 3]);
+							features->y_max =
+								get_unaligned_le16(&report[i + 6]);
+							i += 12;
 						} else {
 							features->y_max =
 								features->x_max;
@@ -296,6 +316,8 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->pktlen = WACOM_PKGLEN_GRAPHIRE;
 						if (features->type == BAMBOO_PT)
 							features->pktlen = WACOM_PKGLEN_BBFUN;
+						if (features->type == BAMBOO_PTC)
+							features->pktlen = WACOM_PKGLEN_INTUOS;
 						features->device_type = BTN_TOOL_PEN;
 						features->y_max =
 							get_unaligned_le16(&report[i + 3]);
@@ -396,7 +418,7 @@ static int wacom_retrieve_hid_descriptor(struct usb_interface *intf,
 
 	/* only Tablet PCs and Bamboo P&T need to retrieve the info */
 	if ((features->type != TABLETPC) && (features->type != TABLETPC2FG) &&
-	    (features->type != BAMBOO_PT))
+	    (features->type != BAMBOO_PT) && (features->type != BAMBOO_PTC))
 		goto out;
 
 	if (usb_get_extra_descriptor(interface, HID_DEVICET_HID, &hid_desc)) {

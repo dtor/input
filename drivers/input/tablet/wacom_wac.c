@@ -909,6 +909,16 @@ static int wacom_bpt_irq(struct wacom_wac *wacom, size_t len)
 	return 0;
 }
 
+static int wacom_bptc_irq(struct wacom_wac *wacom, size_t len)
+{
+	if (len == WACOM_PKGLEN_BBCREATE)
+		return 0;
+	else if (len == WACOM_PKGLEN_INTUOS)
+		return wacom_tpc_pen(wacom);
+
+	return 0;
+}
+
 void wacom_wac_irq(struct wacom_wac *wacom_wac, size_t len)
 {
 	bool sync;
@@ -956,6 +966,10 @@ void wacom_wac_irq(struct wacom_wac *wacom_wac, size_t len)
 
 	case BAMBOO_PT:
 		sync = wacom_bpt_irq(wacom_wac, len);
+		break;
+
+	case BAMBOO_PTC:
+		sync = wacom_bptc_irq(wacom_wac, len);
 		break;
 
 	default:
@@ -1019,11 +1033,11 @@ void wacom_setup_device_quirks(struct wacom_features *features)
 
 	/* these device have multiple inputs */
 	if (features->type == TABLETPC || features->type == TABLETPC2FG ||
-	    features->type == BAMBOO_PT)
+	    features->type == BAMBOO_PT || features->type == BAMBOO_PTC)
 		features->quirks |= WACOM_QUIRK_MULTI_INPUT;
 
 	/* quirks for bamboo touch */
-	if (features->type == BAMBOO_PT &&
+	if ((features->type == BAMBOO_PT || features->type == BAMBOO_PTC) &&
 	    features->device_type == BTN_TOOL_DOUBLETAP) {
 		features->x_max <<= 5;
 		features->y_max <<= 5;
@@ -1201,6 +1215,7 @@ void wacom_setup_input_capabilities(struct input_dev *input_dev,
 		break;
 
 	case BAMBOO_PT:
+	case BAMBOO_PTC:
 		__clear_bit(ABS_MISC, input_dev->absbit);
 
 		if (features->device_type == BTN_TOOL_DOUBLETAP) {
@@ -1478,6 +1493,9 @@ static const struct wacom_features wacom_features_0xDA =
 static struct wacom_features wacom_features_0xDB =
 	{ "Wacom Bamboo 2FG 6x8 SE", WACOM_PKGLEN_BBFUN,  21648, 13530, 1023,
 	  63, BAMBOO_PT, WACOM_INTUOS_RES, WACOM_INTUOS_RES };
+static const struct wacom_features wacom_features_0xDF =
+	{ "Wacom Bamboo Create", WACOM_PKGLEN_INTUOS,  21648, 13530, 1023,
+	  63, BAMBOO_PTC, WACOM_INTUOS_RES, WACOM_INTUOS_RES,  };
 static const struct wacom_features wacom_features_0x6004 =
 	{ "ISD-V4",               WACOM_PKGLEN_GRAPHIRE,  12800,  8000,  255,
 	  0, TABLETPC, WACOM_INTUOS_RES, WACOM_INTUOS_RES };
@@ -1573,6 +1591,7 @@ const struct usb_device_id wacom_ids[] = {
 	{ USB_DEVICE_WACOM(0xD8) },
 	{ USB_DEVICE_WACOM(0xDA) },
 	{ USB_DEVICE_WACOM(0xDB) },
+	{ USB_DEVICE_WACOM(0xDF) },
 	{ USB_DEVICE_WACOM(0xF0) },
 	{ USB_DEVICE_WACOM(0xCC) },
 	{ USB_DEVICE_WACOM(0x90) },
