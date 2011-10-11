@@ -909,6 +909,42 @@ static int wacom_bpt_irq(struct wacom_wac *wacom, size_t len)
 	return 0;
 }
 
+static int wacom_bptc_touch(struct wacom_wac *wacom)
+{
+	struct input_dev *input = wacom->input;
+	unsigned char *data = wacom->data;
+	bool touch = (data[2] & 0x80) == 0;
+
+	input_mt_report_pointer_emulation(input, true);
+
+	input_mt_slot(input, 0);
+	if (wacom->shared->stylus_in_proximity)
+	{
+		input_mt_report_slot_state(input, MT_TOOL_FINGER, 0);
+	}
+	else
+	{
+		if (touch) {
+			int x = data[4];
+			int y = data[5];
+			input_mt_report_slot_state(input, MT_TOOL_FINGER,
+				                   data[3] & 0x80);
+			input_report_abs(input, ABS_MT_POSITION_X, x);
+			input_report_abs(input, ABS_MT_POSITION_Y, y);
+		}
+	}
+
+	if ((data[2] | 0x80) == 0x80)
+	{
+		input_report_key(input, BTN_BACK, (data[3] & 0x08) != 0);
+		input_report_key(input, BTN_FORWARD, (data[3] & 0x04) != 0);
+		input_report_key(input, BTN_RIGHT, (data[3] & 0x02) != 0);
+		input_report_key(input, BTN_LEFT, (data[3] & 0x01) != 0);
+	}
+
+	return 1;
+}
+
 static int wacom_bptc_pen(struct wacom_wac *wacom)
 {
 	struct wacom_features *features = &wacom->features;
@@ -945,7 +981,7 @@ static int wacom_bptc_pen(struct wacom_wac *wacom)
 static int wacom_bptc_irq(struct wacom_wac *wacom, size_t len)
 {
 	if (len == WACOM_PKGLEN_BBCREATE)
-		return 0;
+		return wacom_bptc_touch(wacom);
 	else if (len == WACOM_PKGLEN_INTUOS)
 		return wacom_bptc_pen(wacom);
 
@@ -1070,7 +1106,7 @@ void wacom_setup_device_quirks(struct wacom_features *features)
 		features->quirks |= WACOM_QUIRK_MULTI_INPUT;
 
 	/* quirks for bamboo touch */
-	if ((features->type == BAMBOO_PT || features->type == BAMBOO_PTC) &&
+	if (features->type == BAMBOO_PT &&
 	    features->device_type == BTN_TOOL_DOUBLETAP) {
 		features->x_max <<= 5;
 		features->y_max <<= 5;

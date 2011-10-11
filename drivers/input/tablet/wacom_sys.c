@@ -28,6 +28,7 @@
 #define HID_USAGE_Y_TILT		0x3e
 #define HID_USAGE_FINGER		0x22
 #define HID_USAGE_STYLUS		0x20
+#define HID_USAGE_CREATE		0x80
 #define HID_COLLECTION			0xc0
 
 enum {
@@ -231,15 +232,6 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->x_max =
 								get_unaligned_le16(&report[i + 8]);
 							i += 15;
-						} else if (features->type == BAMBOO_PTC) {
-							/* need to reset back */
-							features->pktlen = WACOM_PKGLEN_BBCREATE;
-							features->device_type = BTN_TOOL_DOUBLETAP;
-							features->x_phy =
-								get_unaligned_le16(&report[i + 5]);
-							features->x_max =
-								get_unaligned_le16(&report[i + 8]);
-							i += 15;
 						} else {
 							features->x_max =
 								get_unaligned_le16(&report[i + 3]);
@@ -294,15 +286,6 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 							features->y_max =
 								get_unaligned_le16(&report[i + 6]);
 							i += 12;
-						} else if (features->type == BAMBOO_PTC) {
-							/* need to reset back */
-							features->pktlen = WACOM_PKGLEN_BBCREATE;
-							features->device_type = BTN_TOOL_DOUBLETAP;
-							features->y_phy =
-								get_unaligned_le16(&report[i + 3]);
-							features->y_max =
-								get_unaligned_le16(&report[i + 6]);
-							i += 12;
 						} else {
 							features->y_max =
 								features->x_max;
@@ -324,6 +307,17 @@ static int wacom_parse_hid(struct usb_interface *intf, struct hid_descriptor *hi
 						i += 4;
 					}
 				}
+				break;
+
+			case HID_USAGE_CREATE:
+				/* need to reset back */
+				features->pktlen = WACOM_PKGLEN_BBCREATE;
+				features->device_type = BTN_TOOL_DOUBLETAP;
+				features->x_max = 255;
+				features->y_max = 255;
+				features->x_phy = features->x_max * 100;
+				features->y_phy = features->y_max * 100;
+				i += 15;
 				break;
 
 			case HID_USAGE_FINGER:
