@@ -909,12 +909,45 @@ static int wacom_bpt_irq(struct wacom_wac *wacom, size_t len)
 	return 0;
 }
 
+static int wacom_bptc_pen(struct wacom_wac *wacom)
+{
+	struct wacom_features *features = &wacom->features;
+	char *data = wacom->data;
+	struct input_dev *input = wacom->input;
+	int pressure;
+	bool prox = data[1] & 0x20;
+
+	if (!wacom->shared->stylus_in_proximity) /* first in prox */
+		/* Going into proximity select tool */
+		wacom->tool[0] = (data[1] & 0x08) ? BTN_TOOL_RUBBER : BTN_TOOL_PEN;
+
+	/* keep pen state for touch events */
+	wacom->shared->stylus_in_proximity = prox;
+
+	/* send pen events only when touch is up or forced out */
+	if (!wacom->shared->touch_down) {
+		input_report_key(input, BTN_STYLUS, data[1] & 0x02);
+		input_report_key(input, BTN_STYLUS2, data[1] & 0x04);
+		input_report_abs(input, ABS_X, le16_to_cpup((__le16 *)&data[2]));
+		input_report_abs(input, ABS_Y, le16_to_cpup((__le16 *)&data[4]));
+		pressure = ((data[7] & 0x03) << 8) | data[6];
+		if (pressure < 0)
+			pressure = features->pressure_max + pressure + 1;
+		input_report_abs(input, ABS_PRESSURE, pressure);
+		input_report_key(input, BTN_TOUCH, data[1] & 0x01);
+		input_report_key(input, wacom->tool[0], prox);
+		return 1;
+	}
+
+	return 0;
+}
+
 static int wacom_bptc_irq(struct wacom_wac *wacom, size_t len)
 {
 	if (len == WACOM_PKGLEN_BBCREATE)
 		return 0;
 	else if (len == WACOM_PKGLEN_INTUOS)
-		return wacom_tpc_pen(wacom);
+		return wacom_bptc_pen(wacom);
 
 	return 0;
 }
