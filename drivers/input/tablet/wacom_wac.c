@@ -947,7 +947,6 @@ static int wacom_bptc_touch(struct wacom_wac *wacom)
 
 static int wacom_bptc_pen(struct wacom_wac *wacom)
 {
-	struct wacom_features *features = &wacom->features;
 	char *data = wacom->data;
 	struct input_dev *input = wacom->input;
 	int pressure;
@@ -966,10 +965,7 @@ static int wacom_bptc_pen(struct wacom_wac *wacom)
 		input_report_key(input, BTN_STYLUS2, data[1] & 0x04);
 		input_report_abs(input, ABS_X, le16_to_cpup((__le16 *)&data[2]));
 		input_report_abs(input, ABS_Y, le16_to_cpup((__le16 *)&data[4]));
-		pressure = ((data[7] & 0x03) << 8) | data[6];
-		if (pressure < 0)
-			pressure = features->pressure_max + pressure + 1;
-		input_report_abs(input, ABS_PRESSURE, pressure);
+		input_report_abs(input, ABS_PRESSURE, le16_to_cpup((__le16 *)&data[6]));
 		input_report_key(input, BTN_TOUCH, data[1] & 0x01);
 		input_report_key(input, wacom->tool[0], prox);
 		return 1;
