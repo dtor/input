@@ -365,6 +365,8 @@ struct rmi_function_handler {
 	struct device_driver driver;
 
 	u8 func;
+	int (*probe)(struct rmi_function *fn);
+	void (*remove)(struct rmi_function *fn);
 	int (*config)(struct rmi_function *fn);
 	int (*reset)(struct rmi_function *fn);
 	int (*attention)(struct rmi_function *fn, unsigned long *irq_bits);
@@ -376,6 +378,13 @@ struct rmi_function_handler {
 
 #define to_rmi_function_handler(d) \
 		container_of(d, struct rmi_function_handler, driver)
+
+int __must_check __rmi_register_function_handler(struct rmi_function_handler *,
+						 struct module *, const char *);
+#define rmi_register_function_handler(handler) \
+	__rmi_register_function_handler(handler, THIS_MODULE, KBUILD_MODNAME)
+
+void rmi_unregister_function_handler(struct rmi_function_handler *);
 
 /**
  * struct rmi_function - represents the implementation of an RMI4

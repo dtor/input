@@ -26,8 +26,6 @@
 #include "rmi_driver.h"
 #include "rmi_f01.h"
 
-#define FUNCTION_NUMBER 0x01
-
 /**
  * @reset - set this bit to force a firmware reset of the sensor.
  */
@@ -1120,7 +1118,7 @@ static int rmi_f01_config(struct rmi_function *fn)
 	return 0;
 }
 
-static int f01_device_init(struct rmi_function *fn)
+static int rmi_f01_probe(struct rmi_function *fn)
 {
 	struct rmi_driver_data *driver_data =
 			dev_get_drvdata(&fn->rmi_dev->dev);
@@ -1139,6 +1137,12 @@ static int f01_device_init(struct rmi_function *fn)
 		return error;
 
 	return 0;
+}
+
+static void rmi_f01_remove(struct rmi_function *fn)
+{
+	teardown_debugfs(fn->data);
+	sysfs_remove_group(&fn->dev.kobj, &rmi_fn_01_attr_group);
 }
 
 #ifdef CONFIG_PM
@@ -1200,18 +1204,8 @@ static int rmi_f01_resume(struct rmi_function *fn)
 }
 #endif /* CONFIG_PM */
 
-static int f01_remove(struct device *dev)
-{
-	struct rmi_function *fn = to_rmi_function(dev);
-
-	teardown_debugfs(fn->data);
-	sysfs_remove_group(&fn->dev.kobj, &rmi_fn_01_attr_group);
-
-	return 0;
-}
-
 static int rmi_f01_attention(struct rmi_function *fn,
-						unsigned long *irq_bits)
+			     unsigned long *irq_bits)
 {
 	struct rmi_device *rmi_dev = fn->rmi_dev;
 	struct f01_data *data = fn->data;
@@ -1233,44 +1227,17 @@ static int rmi_f01_attention(struct rmi_function *fn,
 	return 0;
 }
 
-static int f01_probe(struct device *dev)
-{
-	struct rmi_function *fn;
-
-	if (dev->type != &rmi_function_type)
-		return 1;
-
-	fn = to_rmi_function(dev);
-	if (fn->fd.function_number != FUNCTION_NUMBER)
-		return 1;
-
-	return f01_device_init(fn);
-}
-
-static struct rmi_function_handler function_handler = {
+struct rmi_function_handler rmi_f01_handler = {
 	.driver = {
-		.owner = THIS_MODULE,
 		.name = "rmi_f01",
-		.bus = &rmi_bus_type,
-		.probe = f01_probe,
-		.remove = f01_remove,
 	},
-	.func = FUNCTION_NUMBER,
+	.func = 0x01,
+	.probe = rmi_f01_probe,
+	.remove = rmi_f01_remove,
 	.config = rmi_f01_config,
 	.attention = rmi_f01_attention,
-
 #ifdef CONFIG_PM
 	.suspend = rmi_f01_suspend,
 	.resume = rmi_f01_resume,
 #endif  /* CONFIG_PM */
 };
-
-int __init rmi_register_f01_handler(void)
-{
-	return driver_register(&function_handler.driver);
-}
-
-void __exit rmi_unregister_f01_handler(void)
-{
-	driver_unregister(&function_handler.driver);
-}

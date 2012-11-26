@@ -73,51 +73,6 @@ static atomic_t physical_device_count = ATOMIC_INIT(0);
 static struct dentry *rmi_debugfs_root;
 #endif
 
-#ifdef CONFIG_PM
-static int rmi_bus_suspend(struct device *dev)
-{
-	struct device_driver *driver = dev->driver;
-	const struct dev_pm_ops *pm;
-
-	if (!driver)
-		return 0;
-
-	pm = driver->pm;
-	if (pm && pm->suspend)
-		return pm->suspend(dev);
-	if (driver->suspend)
-		return driver->suspend(dev, PMSG_SUSPEND);
-
-	return 0;
-}
-
-static int rmi_bus_resume(struct device *dev)
-{
-	struct device_driver *driver = dev->driver;
-	const struct dev_pm_ops *pm;
-
-	if (!driver)
-		return 0;
-
-	pm = driver->pm;
-	if (pm && pm->resume)
-		return pm->resume(dev);
-	if (driver->resume)
-		return driver->resume(dev);
-
-	return 0;
-}
-#endif
-
-static SIMPLE_DEV_PM_OPS(rmi_bus_pm_ops,
-			 rmi_bus_suspend, rmi_bus_resume);
-
-struct bus_type rmi_bus_type = {
-	.name		= "rmi",
-	.pm		= &rmi_bus_pm_ops
-};
-EXPORT_SYMBOL_GPL(rmi_bus_type);
-
 static void release_rmidev_device(struct device *dev)
 {
 	device_unregister(dev);
@@ -184,6 +139,142 @@ void rmi_unregister_phys_device(struct rmi_phys_device *phys)
 EXPORT_SYMBOL(rmi_unregister_phys_device);
 
 /**
+ * rmi_register_function_handler - register a handler for an RMI function
+ * @handler: RMI handler that should be registered.
+ * @module: pointer to module that implements the handler
+ * @mod_name: name of the module implementing the handler
+ *
+ * This function performs additional setup of RMI function handler and
+ * registers it with the RMI core so that it can be bound to
+ * RMI function devices.
+ */
+int __rmi_register_function_handler(struct rmi_function_handler *handler,
+				     struct module *owner,
+				     const char *mod_name)
+{
+	int error;
+
+	handler->driver.bus = &rmi_bus_type;
+	handler->driver.owner = owner;
+	handler->driver.mod_name = mod_name;
+
+	error = driver_register(&handler->driver);
+	if (error) {
+		pr_err("driver_register() failed for %s, error: %d\n",
+			handler->driver.name, error);
+		return error;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(__rmi_register_function_handler);
+
+/**
+ * rmi_unregister_function_handler - unregister given RMI function handler
+ * @handler: RMI handler that should be unregistered.
+ *
+ * This function unregisters given function handler from RMI core which
+ * causes it to be unbound from the function devices.
+ */
+void rmi_unregister_function_handler(struct rmi_function_handler *handler)
+{
+	driver_unregister(&handler->driver);
+}
+EXPORT_SYMBOL(rmi_unregister_function_handler);
+
+
+static int rmi_function_match(struct device *dev, struct device_driver *drv)
+{
+	struct rmi_function_handler *handler;
+	struct rmi_function *fn;
+
+	if (dev->type != &rmi_function_type)
+		return 0;
+
+	if (drv == &rmi_sensor_driver.driver)
+		return 0;
+
+	fn = to_rmi_function(dev);
+	handler = to_rmi_function_handler(drv);
+
+	return fn->fd.function_number == handler->func;
+}
+
+static int rmi_function_probe(struct device *dev)
+{
+	struct rmi_function *fn = to_rmi_function(dev);
+	struct rmi_function_handler *handler =
+					to_rmi_function_handler(dev->driver);
+	int error;
+
+	if (handler->probe) {
+		error = handler->probe(fn);
+		return error;
+	}
+
+	return 0;
+}
+
+static int rmi_function_remove(struct device *dev)
+{
+	struct rmi_function *fn = to_rmi_function(dev);
+	struct rmi_function_handler *handler =
+					to_rmi_function_handler(dev->driver);
+
+	if (handler->remove)
+		handler->remove(fn);
+
+	return 0;
+}
+
+#ifdef CONFIG_PM
+static int rmi_bus_suspend(struct device *dev)
+{
+	struct device_driver *driver = dev->driver;
+	const struct dev_pm_ops *pm;
+
+	if (!driver)
+		return 0;
+
+	pm = driver->pm;
+	if (pm && pm->suspend)
+		return pm->suspend(dev);
+	if (driver->suspend)
+		return driver->suspend(dev, PMSG_SUSPEND);
+
+	return 0;
+}
+
+static int rmi_bus_resume(struct device *dev)
+{
+	struct device_driver *driver = dev->driver;
+	const struct dev_pm_ops *pm;
+
+	if (!driver)
+		return 0;
+
+	pm = driver->pm;
+	if (pm && pm->resume)
+		return pm->resume(dev);
+	if (driver->resume)
+		return driver->resume(dev);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(rmi_bus_pm_ops,
+			 rmi_bus_suspend, rmi_bus_resume);
+
+struct bus_type rmi_bus_type = {
+	.match		= rmi_function_match,
+	.probe		= rmi_function_probe,
+	.remove		= rmi_function_remove,
+	.name		= "rmi",
+	.pm		= &rmi_bus_pm_ops,
+};
+
+/**
  * rmi_for_each_dev - provides a way for other parts of the system to enumerate
  * the devices on the RMI bus.
  *
@@ -198,7 +289,7 @@ int rmi_for_each_dev(void *data, int (*func)(struct device *dev, void *data))
 	mutex_unlock(&rmi_bus_mutex);
 	return retval;
 }
-EXPORT_SYMBOL_GPL(rmi_for_each_dev);
+EXPORT_SYMBOL(rmi_for_each_dev);
 
 static int __init rmi_bus_init(void)
 {
@@ -213,7 +304,7 @@ static int __init rmi_bus_init(void)
 		return error;
 	}
 
-	error = rmi_register_f01_handler();
+	error = rmi_register_function_handler(&rmi_f01_handler);
 	if (error) {
 		pr_err("%s: error registering the RMI F01 handler: %d\n",
 			__func__, error);
@@ -242,7 +333,7 @@ static int __init rmi_bus_init(void)
 	return 0;
 
 err_unregister_f01:
-	rmi_unregister_f01_handler();
+	rmi_unregister_function_handler(&rmi_f01_handler);
 err_unregister_bus:
 	bus_unregister(&rmi_bus_type);
 	return error;
@@ -258,7 +349,7 @@ static void __exit rmi_bus_exit(void)
 		debugfs_remove(rmi_debugfs_root);
 
 	rmi_unregister_sensor_driver();
-	rmi_unregister_f01_handler();
+	rmi_unregister_function_handler(&rmi_f01_handler);
 	bus_unregister(&rmi_bus_type);
 }
 

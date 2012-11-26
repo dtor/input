@@ -1608,7 +1608,7 @@ static int __devinit rmi_driver_probe(struct device *dev)
 static UNIVERSAL_DEV_PM_OPS(rmi_driver_pm, rmi_driver_suspend,
 			    rmi_driver_resume, NULL);
 
-static struct rmi_driver rmi_sensor_driver = {
+struct rmi_driver rmi_sensor_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "rmi_generic",
