@@ -2756,18 +2756,7 @@ static struct rmi_function_handler rmi_f11_handler = {
 #endif  /* defined(CONFIG_HAS_EARLYSUSPEND) */
 };
 
-static int __init rmi_f11_module_init(void)
-{
-	return rmi_register_function_handler(&rmi_f11_handler);
-}
-
-static void __exit rmi_f11_module_exit(void)
-{
-	rmi_unregister_function_handler(&rmi_f11_handler);
-}
-
-module_init(rmi_f11_module_init);
-module_exit(rmi_f11_module_exit);
+module_rmi_driver(rmi_f11_handler);
 
 MODULE_AUTHOR("Christopher Heiny <cheiny@synaptics.com");
 MODULE_DESCRIPTION("RMI F11 module");
