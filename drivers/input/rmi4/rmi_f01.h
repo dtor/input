@@ -66,25 +66,27 @@
 struct f01_basic_queries {
 	u8 manufacturer_id:8;
 
-	bool custom_map:1;
-	bool non_compliant:1;
-	bool has_lts:1;
-	bool has_sensor_id:1;
-	bool has_charger_input:1;
-	bool has_adjustable_doze:1;
-	bool has_adjustable_doze_holdoff:1;
-	bool has_product_properties_2:1;
+	u8 custom_map:1;
+	u8 non_compliant:1;
+	u8 has_lts:1;
+	u8 has_sensor_id:1;
+	u8 has_charger_input:1;
+	u8 has_adjustable_doze:1;
+	u8 has_adjustable_doze_holdoff:1;
+	u8 has_product_properties_2:1;
 
 	u8 productinfo_1:7;
-	bool q2_bit_7:1;
+	u8 q2_bit_7:1;
+
 	u8 productinfo_2:7;
-	bool q3_bit_7:1;
+	u8 q3_bit_7:1;
 
 	u8 year:5;
 	u8 month:4;
 	u8 day:5;
-	bool cp1:1;
-	bool cp2:1;
+	u8 cp1:1;
+	u8 cp2:1;
+
 	u8 wafer_id1_lsb:8;
 	u8 wafer_id1_msb:8;
 	u8 wafer_id2_lsb:8;
@@ -118,10 +120,10 @@ enum rmi_device_status {
  * @unconfigured - the device has lost its configuration for some reason.
  */
 struct f01_device_status {
-	enum rmi_device_status status_code:4;
+	u8 status_code:4;
 	u8 reserved:2;
-	bool flash_prog:1;
-	bool unconfigured:1;
+	u8 flash_prog:1;
+	u8 unconfigured:1;
 } __attribute__((__packed__));
 
 /* control register bits */
@@ -150,11 +152,11 @@ struct f01_device_status {
  */
 struct f01_device_control_0 {
 	u8 sleep_mode:2;
-	bool nosleep:1;
+	u8 nosleep:1;
 	u8 reserved:2;
-	bool charger_input:1;
-	bool report_rate:1;
-	bool configured:1;
+	u8 charger_input:1;
+	u8 report_rate:1;
+	u8 configured:1;
 } __attribute__((__packed__));
 
 #endif

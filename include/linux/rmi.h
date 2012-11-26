@@ -376,7 +376,7 @@ struct rmi_function_handler {
 };
 
 #define to_rmi_function_handler(d) \
-		container_of(d, struct rmi_function_handler, driver);
+		container_of(d, struct rmi_function_handler, driver)
 
 /**
  * struct rmi_function_container - represents the implementation of an RMI4
@@ -413,7 +413,7 @@ struct rmi_function_container {
 };
 
 #define to_rmi_function_container(d) \
-		container_of(d, struct rmi_function_container, dev);
+		container_of(d, struct rmi_function_container, dev)
 
 /**
  * struct rmi_driver - driver for an RMI4 sensor on the RMI bus.
