@@ -594,7 +594,7 @@ static struct device_attribute bsr_attribute = __ATTR(bsr, RMI_RW_ATTR,
 
 static void rmi_free_function_list(struct rmi_device *rmi_dev)
 {
-	struct rmi_function_container *entry, *n;
+	struct rmi_function *entry, *n;
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
 
 	if (!data) {
@@ -613,44 +613,44 @@ static void rmi_free_function_list(struct rmi_device *rmi_dev)
 	}
 }
 
-static void release_fc_device(struct device *dev)
+static void release_function_device(struct device *dev)
 {
 	dev_dbg(dev, "REMOVING KOBJ!");
 	kobject_put(&dev->kobj);
 }
 
-static int reset_one_function(struct rmi_function_container *fc)
+static int reset_one_function(struct rmi_function *fn)
 {
 	struct rmi_function_handler *fh;
 	int retval = 0;
 
-	if (!fc || !fc->dev.driver)
+	if (!fn || !fn->dev.driver)
 		return 0;
 
-	fh = to_rmi_function_handler(fc->dev.driver);
+	fh = to_rmi_function_handler(fn->dev.driver);
 	if (fh->reset) {
-		retval = fh->reset(fc);
+		retval = fh->reset(fn);
 		if (retval < 0)
-			dev_err(&fc->dev, "Reset failed with code %d.\n",
+			dev_err(&fn->dev, "Reset failed with code %d.\n",
 				retval);
 	}
 
 	return retval;
 }
 
-static int configure_one_function(struct rmi_function_container *fc)
+static int configure_one_function(struct rmi_function *fn)
 {
 	struct rmi_function_handler *fh;
 	int retval = 0;
 
-	if (!fc || !fc->dev.driver)
+	if (!fn || !fn->dev.driver)
 		return 0;
 
-	fh = to_rmi_function_handler(fc->dev.driver);
+	fh = to_rmi_function_handler(fn->dev.driver);
 	if (fh->config) {
-		retval = fh->config(fc);
+		retval = fh->config(fn);
 		if (retval < 0)
-			dev_err(&fc->dev, "Config failed with code %d.\n",
+			dev_err(&fn->dev, "Config failed with code %d.\n",
 				retval);
 	}
 
@@ -660,7 +660,7 @@ static int configure_one_function(struct rmi_function_container *fc)
 static int rmi_driver_process_reset_requests(struct rmi_device *rmi_dev)
 {
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
-	struct rmi_function_container *entry;
+	struct rmi_function *entry;
 	int retval;
 
 	if (list_empty(&data->rmi_functions.list))
@@ -678,7 +678,7 @@ static int rmi_driver_process_reset_requests(struct rmi_device *rmi_dev)
 static int rmi_driver_process_config_requests(struct rmi_device *rmi_dev)
 {
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
-	struct rmi_function_container *entry;
+	struct rmi_function *entry;
 	int retval;
 
 	if (list_empty(&data->rmi_functions.list))
@@ -693,30 +693,29 @@ static int rmi_driver_process_config_requests(struct rmi_device *rmi_dev)
 	return 0;
 }
 
-static void process_one_interrupt(struct rmi_function_container *fc,
+static void process_one_interrupt(struct rmi_function *fn,
 		unsigned long *irq_status, struct rmi_driver_data *data)
 {
 	struct rmi_function_handler *fh;
 	DECLARE_BITMAP(irq_bits, data->num_of_irq_regs);
 
-	if (!fc || !fc->dev.driver)
+	if (!fn || !fn->dev.driver)
 		return;
 
-	fh = to_rmi_function_handler(fc->dev.driver);
-	if (fc->irq_mask && fh->attention) {
-		bitmap_and(irq_bits, irq_status, fc->irq_mask,
+	fh = to_rmi_function_handler(fn->dev.driver);
+	if (fn->irq_mask && fh->attention) {
+		bitmap_and(irq_bits, irq_status, fn->irq_mask,
 				data->irq_count);
 		if (!bitmap_empty(irq_bits, data->irq_count))
-			fh->attention(fc, irq_bits);
+			fh->attention(fn, irq_bits);
 	}
-
 }
 
 static int process_interrupt_requests(struct rmi_device *rmi_dev)
 {
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
 	struct device *dev = &rmi_dev->dev;
-	struct rmi_function_container *entry;
+	struct rmi_function *entry;
 	int error;
 
 	error = rmi_read_block(rmi_dev,
@@ -904,65 +903,65 @@ static int rmi_driver_reset_handler(struct rmi_device *rmi_dev)
  * Construct a function's IRQ mask. This should be called once and stored.
  */
 int rmi_driver_irq_get_mask(struct rmi_device *rmi_dev,
-		struct rmi_function_container *fc) {
+		struct rmi_function *fn) {
 	int i;
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
 
 	/* call devm_kcalloc when it will be defined in kernel in future */
-	fc->irq_mask = devm_kzalloc(&rmi_dev->dev,
+	fn->irq_mask = devm_kzalloc(&rmi_dev->dev,
 			BITS_TO_LONGS(data->irq_count)*sizeof(unsigned long),
 			GFP_KERNEL);
 
-	if (fc->irq_mask) {
-		for (i = 0; i < fc->num_of_irqs; i++)
-			set_bit(fc->irq_pos+i, fc->irq_mask);
+	if (fn->irq_mask) {
+		for (i = 0; i < fn->num_of_irqs; i++)
+			set_bit(fn->irq_pos+i, fn->irq_mask);
 		return 0;
 	} else
 		return -ENOMEM;
 }
 
 static int init_function_device(struct rmi_device *rmi_dev,
-			     struct rmi_function_container *fc)
+			     struct rmi_function *fn)
 {
 	int retval;
 
 	/* This memset might not be what we want to do... */
-	memset(&(fc->dev), 0, sizeof(struct device));
-	dev_set_name(&(fc->dev), "%s.fn%02x", dev_name(&rmi_dev->dev),
-			fc->fd.function_number);
-	fc->dev.release = release_fc_device;
+	memset(&fn->dev, 0, sizeof(struct device));
+	dev_set_name(&fn->dev, "%s.fn%02x", dev_name(&rmi_dev->dev),
+			fn->fd.function_number);
+	fn->dev.release = release_function_device;
 
-	fc->dev.parent = &rmi_dev->dev;
-	fc->dev.type = &rmi_function_type;
-	fc->dev.bus = &rmi_bus_type;
-	dev_dbg(&rmi_dev->dev, "Register F%02X.\n", fc->fd.function_number);
-	retval = device_register(&fc->dev);
+	fn->dev.parent = &rmi_dev->dev;
+	fn->dev.type = &rmi_function_type;
+	fn->dev.bus = &rmi_bus_type;
+	dev_dbg(&rmi_dev->dev, "Register F%02X.\n", fn->fd.function_number);
+	retval = device_register(&fn->dev);
 	if (retval) {
 		dev_err(&rmi_dev->dev, "Failed device_register for F%02X.\n",
-			fc->fd.function_number);
+			fn->fd.function_number);
 		return retval;
 	}
 
 	if (IS_ENABLED(CONFIG_RMI4_DEBUG)) {
 		char dirname[12];
 
-		snprintf(dirname, 12, "F%02X", fc->fd.function_number);
-		fc->debugfs_root = debugfs_create_dir(dirname,
+		snprintf(dirname, 12, "F%02X", fn->fd.function_number);
+		fn->debugfs_root = debugfs_create_dir(dirname,
 						      rmi_dev->debugfs_root);
-		if (!fc->debugfs_root)
-			dev_warn(&fc->dev, "Failed to create debugfs dir.\n");
+		if (!fn->debugfs_root)
+			dev_warn(&fn->dev, "Failed to create debugfs dir.\n");
 	}
 
 	return 0;
 }
 
-static int create_function_container(struct rmi_device *rmi_dev,
+static int create_function(struct rmi_device *rmi_dev,
 				     struct pdt_entry *pdt_ptr,
 				     int *current_irq_count,
 				     u16 page_start)
 {
 	struct rmi_driver_data *data = dev_get_drvdata(&rmi_dev->dev);
-	struct rmi_function_container *fc = NULL;
+	struct rmi_function *fn = NULL;
 	int retval = 0;
 	struct device *dev = &rmi_dev->dev;
 	struct rmi_device_platform_data *pdata;
@@ -972,37 +971,37 @@ static int create_function_container(struct rmi_device *rmi_dev,
 	dev_dbg(dev, "Initializing F%02X for %s.\n", pdt_ptr->function_number,
 		pdata->sensor_name);
 
-	fc = devm_kzalloc(dev, sizeof(struct rmi_function_container),
+	fn = devm_kzalloc(dev, sizeof(struct rmi_function),
 			GFP_KERNEL);
-	if (!fc) {
+	if (!fn) {
 		dev_err(dev, "Failed to allocate F%02X container.\n",
 			pdt_ptr->function_number);
 		return -ENOMEM;
 	}
 
-	copy_pdt_entry_to_fd(pdt_ptr, &fc->fd, page_start);
+	copy_pdt_entry_to_fd(pdt_ptr, &fn->fd, page_start);
 
-	fc->rmi_dev = rmi_dev;
-	fc->num_of_irqs = pdt_ptr->interrupt_source_count;
+	fn->rmi_dev = rmi_dev;
+	fn->num_of_irqs = pdt_ptr->interrupt_source_count;
 
-	fc->irq_pos = *current_irq_count;
-	*current_irq_count += fc->num_of_irqs;
+	fn->irq_pos = *current_irq_count;
+	*current_irq_count += fn->num_of_irqs;
 
-	retval = init_function_device(rmi_dev, fc);
+	retval = init_function_device(rmi_dev, fn);
 	if (retval < 0) {
 		dev_err(dev, "Failed to initialize F%02X device.\n",
 			pdt_ptr->function_number);
 		goto error_free_data;
 	}
 
-	INIT_LIST_HEAD(&fc->list);
+	INIT_LIST_HEAD(&fn->list);
 	/* we need to ensure that F01 is at the head of the list.
 	 */
 	if (pdt_ptr->function_number == 0x01) {
-		list_add(&fc->list, &data->rmi_functions.list);
-		data->f01_container = fc;
+		list_add(&fn->list, &data->rmi_functions.list);
+		data->f01_container = fn;
 	} else
-		list_add_tail(&fc->list, &data->rmi_functions.list);
+		list_add_tail(&fn->list, &data->rmi_functions.list);
 	return 0;
 
 error_free_data:
@@ -1032,7 +1031,6 @@ static void check_bootloader_mode(struct rmi_device *rmi_dev,
 	if (device_status.flash_prog)
 		dev_warn(&rmi_dev->dev,
 			 "WARNING: RMI4 device is in bootloader mode!\n");
-
 }
 
 /*
@@ -1203,7 +1201,7 @@ static int rmi_scan_pdt(struct rmi_device *rmi_dev)
 						      page_start);
 
 
-			retval = create_function_container(rmi_dev,
+			retval = create_function(rmi_dev,
 					&pdt_entry, &irq_count, page_start);
 
 			if (retval)
@@ -1228,23 +1226,23 @@ static int f01_notifier_call(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
 	struct device *dev = data;
-	struct rmi_function_container *fc;
+	struct rmi_function *fn;
 
 	if (dev->type != &rmi_function_type)
 		return 0;
 
-	fc = to_rmi_function_container(dev);
-	if (fc->fd.function_number != 0x01)
+	fn = to_rmi_function(dev);
+	if (fn->fd.function_number != 0x01)
 		return 0;
 
 	switch (action) {
 	case BUS_NOTIFY_BOUND_DRIVER:
 		dev_dbg(dev, "%s: F01 driver bound.\n", __func__);
-		enable_sensor(fc->rmi_dev);
+		enable_sensor(fn->rmi_dev);
 		break;
 	case BUS_NOTIFY_UNBIND_DRIVER:
 		dev_dbg(dev, "%s: F01 driver going away.\n", __func__);
-		disable_sensor(fc->rmi_dev);
+		disable_sensor(fn->rmi_dev);
 		break;
 	}
 	return 0;
@@ -1255,20 +1253,20 @@ static struct notifier_block rmi_bus_notifier = {
 };
 
 #ifdef CONFIG_PM
-static int suspend_one_device(struct rmi_function_container *fc)
+static int suspend_one_device(struct rmi_function *fn)
 {
 	struct rmi_function_handler *fh;
 	int retval = 0;
 
-	if (!fc->dev.driver)
+	if (!fn->dev.driver)
 		return 0;
 
-	fh = to_rmi_function_handler(fc->dev.driver);
+	fh = to_rmi_function_handler(fn->dev.driver);
 
 	if (fh->suspend) {
-		retval = fh->suspend(fc);
+		retval = fh->suspend(fn);
 		if (retval < 0)
-			dev_err(&fc->dev, "Suspend failed, code: %d",
+			dev_err(&fn->dev, "Suspend failed, code: %d",
 				retval);
 	}
 
@@ -1278,7 +1276,7 @@ static int suspend_one_device(struct rmi_function_container *fc)
 static int rmi_driver_suspend(struct device *dev)
 {
 	struct rmi_driver_data *data;
-	struct rmi_function_container *entry;
+	struct rmi_function *entry;
 	int retval = 0;
 	struct rmi_device *rmi_dev = to_rmi_device(dev);
 
@@ -1311,20 +1309,20 @@ exit:
 	return retval;
 }
 
-static int resume_one_device(struct rmi_function_container *fc)
+static int resume_one_device(struct rmi_function *fn)
 {
 	struct rmi_function_handler *fh;
 	int retval = 0;
 
-	if (!fc->dev.driver)
+	if (!fn->dev.driver)
 		return 0;
 
-	fh = to_rmi_function_handler(fc->dev.driver);
+	fh = to_rmi_function_handler(fn->dev.driver);
 
 	if (fh->resume) {
-		retval = fh->resume(fc);
+		retval = fh->resume(fn);
 		if (retval < 0)
-			dev_err(&fc->dev, "Resume failed, code: %d",
+			dev_err(&fn->dev, "Resume failed, code: %d",
 				retval);
 	}
 
@@ -1334,7 +1332,7 @@ static int resume_one_device(struct rmi_function_container *fc)
 static int rmi_driver_resume(struct device *dev)
 {
 	struct rmi_driver_data *data;
-	struct rmi_function_container *entry;
+	struct rmi_function *entry;
 	int retval = 0;
 	struct rmi_device *rmi_dev = to_rmi_device(dev);
 
@@ -1399,7 +1397,7 @@ static int __devinit rmi_driver_probe(struct device *dev)
 {
 	struct rmi_driver *rmi_driver;
 	struct rmi_driver_data *data = NULL;
-	struct rmi_function_container *fc;
+	struct rmi_function *fn;
 	struct rmi_device_platform_data *pdata;
 	int retval = 0;
 	int attr_count = 0;
@@ -1467,8 +1465,8 @@ static int __devinit rmi_driver_probe(struct device *dev)
 		goto err_free_data;
 	}
 
-	list_for_each_entry(fc, &data->rmi_functions.list, list) {
-		retval = rmi_driver_irq_get_mask(rmi_dev, fc);
+	list_for_each_entry(fn, &data->rmi_functions.list, list) {
+		retval = rmi_driver_irq_get_mask(rmi_dev, fn);
 		if (retval < 0) {
 			dev_err(dev, "%s: Failed to create irq_mask.\n",
 				__func__);
@@ -1573,7 +1571,7 @@ static int __devinit rmi_driver_probe(struct device *dev)
 	if (IS_ENABLED(CONFIG_RMI4_DEBUG)) {
 		retval = setup_debugfs(rmi_dev);
 		if (retval < 0)
-			dev_warn(&fc->dev, "Failed to setup debugfs. Code: %d.\n",
+			dev_warn(&fn->dev, "Failed to setup debugfs. Code: %d.\n",
 				retval);
 	}
 

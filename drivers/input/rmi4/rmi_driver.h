@@ -44,10 +44,10 @@ struct pdt_properties {
 } __attribute__((__packed__));
 
 struct rmi_driver_data {
-	struct rmi_function_container rmi_functions;
+	struct rmi_function rmi_functions;
 	struct rmi_device *rmi_dev;
 
-	struct rmi_function_container *f01_container;
+	struct rmi_function *f01_container;
 	bool f01_bootloader_mode;
 
 	atomic_t attn_count;

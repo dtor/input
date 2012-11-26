@@ -338,7 +338,7 @@ struct rmi_function_descriptor {
 	u8 function_version;
 };
 
-struct rmi_function_container;
+struct rmi_function;
 struct rmi_device;
 
 /**
@@ -365,13 +365,12 @@ struct rmi_function_handler {
 	struct device_driver driver;
 
 	u8 func;
-	int (*config)(struct rmi_function_container *fc);
-	int (*reset)(struct rmi_function_container *fc);
-	int (*attention)(struct rmi_function_container *fc,
-				unsigned long *irq_bits);
+	int (*config)(struct rmi_function *fn);
+	int (*reset)(struct rmi_function *fn);
+	int (*attention)(struct rmi_function *fn, unsigned long *irq_bits);
 #ifdef CONFIG_PM
-	int (*suspend)(struct rmi_function_container *fc);
-	int (*resume)(struct rmi_function_container *fc);
+	int (*suspend)(struct rmi_function *fn);
+	int (*resume)(struct rmi_function *fn);
 #endif
 };
 
@@ -379,7 +378,7 @@ struct rmi_function_handler {
 		container_of(d, struct rmi_function_handler, driver)
 
 /**
- * struct rmi_function_container - represents the implementation of an RMI4
+ * struct rmi_function - represents the implementation of an RMI4
  * function for a particular device (basically, a driver for that RMI4 function)
  *
  * @fd: The function descriptor of the RMI function
@@ -396,8 +395,7 @@ struct rmi_function_handler {
  * @debugfs_root: used during debugging
  *
  */
-struct rmi_function_container {
-
+struct rmi_function {
 	struct rmi_function_descriptor fd;
 	struct rmi_device *rmi_dev;
 	struct device dev;
@@ -412,8 +410,8 @@ struct rmi_function_container {
 #endif
 };
 
-#define to_rmi_function_container(d) \
-		container_of(d, struct rmi_function_container, dev)
+#define to_rmi_function(d) \
+		container_of(d, struct rmi_function, dev)
 
 /**
  * struct rmi_driver - driver for an RMI4 sensor on the RMI bus.
