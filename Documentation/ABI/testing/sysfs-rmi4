@@ -1,0 +1,103 @@
+What:		/sys/bus/rmi/devices
+Date:		October 2012
+KernelVersion:	3.x
+Contact:	Christopher Heiny <cheiny@synaptics.com>
+Description:
+
+  The RMI4 driver implementation exposes a set of informational and control
+  parameters via sysfs.  These parameters are those that typically will be
+  referenced and/or adjusted during normal operation of products containing
+  RMI sensors.  For paramters that are only viewed or adjusted during product
+  development and debug, please see debugfs-rmi4 in this directory.
+
+  General parameters for a particular RMI4 sensor are found in
+  /sys/bus/rmi/devices/sensorXX/, where XX is a the device's ID as a two
+  digit number (padded with leading zeros).  Function specific parameters
+  for an RMI4 sensor are found in /sys/bus/rmi/devices/sensorXX.fnYY/, where
+  XX is a the device's ID as a two digit number (padded with leading zeros)
+  and YY is the hexdecimal function number (for example, fn11 for RMI function
+  F11).
+
+  Many of the parameters exposed here are described in detail in the
+  RMI4 Specification, which is found here:
+    http://www.synaptics.com/sites/default/files/511-000136-01_revD.pdf
+  For such parameters, we'll reference you to that document, rather than
+  copying the contents here.
+
+  /sys/bus/rmi/devices
+      /sensorXX/
+          bsr ... (rw) bus select register, if supported (see spec)
+          enabled ... (rw) enable/disable interrupt management [deprecated]
+
+      /sensor00.fn01/
+          chargerinput ... (rw) User space programs can use this to tell the
+                  sensor that the system is plugged into an external power
+                  source (as opposed to running on batteries).  This allows
+                  the sensor firmware to make necessary adjustments for the
+                  current capacitence regime.  Write 1 to this when the
+                  system is using external power, write 0 to this when the
+                  system is running on batteries.  See spec for full details.
+          configured ... (ro) Shows the current state of the configured bit.
+                  This will be 1 most of the time (indicating the device has
+                  been appropriately configured), but will switch to 0 briefly
+                  if the sensor experiences a firmware or ASIC reset event.
+                  See spec for full details.
+          datecode ... (ro) The date on which the module was manufactured.
+                  See spec for full details.
+          doze_holdoff ... (rw) Controls how long the sensor will wait before
+                  entering the doze state when no fingers are present on the
+                  device. The time is in terms of 10 milliseconds - a
+                  doze_holdoff value of 3 corresponds to a time period of 30
+                  milliseconds.  See spec for full details.
+          flashprog ... (ro) Defines the current device operating mode. The
+                  flashprog flag is set if the normal operation of the device
+                  is suspended because the device is in a flash programming
+                  enabled state.  See spec for full details.
+          interrupt_enable ... (ro) This represents the current RMI4 interrupt
+                  mask (F01_RMI_Ctrl1 registers).  See spec for full details.
+          manufacturer ... (ro) This is the identity of the manufacturer of
+                  the device, as obtained from F01_RMI_Query0.  See spec for
+                  full details.
+          nosleep ... (rw) Writing 1 to this parameter disables all normal
+                  firmware powersaving behaviors and forces the device to run
+                  at full power without sleeping.  See spec for full details.
+          productid ... (ro) The product info bytes, as determined from
+                  F01_RMI_Query2 and F01_RMI_Query3 registers.  See spec for
+                  full details.
+          productinfo ... (ro) A string of up to 10 characters, identifying
+                  the product.  See spec for full details.
+          reportrate ... (rw) This is the current value of the RMI4 ReportRate
+                  bit (F01_RMI_Ctrl0, bit 6).  The meaning of this bit is very
+                  much device-dependent. Please see both the RMI4 spec and the
+                  sensor spec sheet for details.
+          reset ... (wo)  Writing a 1 to this write only register forces the
+                  device to reset.
+          sleepmode ... (rw) Controls power management on the device.  Writing
+                  0 to this parameter puts the device into its normal operating
+                  mode.  Writing 1 to this parameter fully disables touch
+                  sensors and similar inputs - no touch data will be reported
+                  from the device in this mode.  Writing 2 or 3 to this device
+                  may or may not have an effect, depending on the particular
+                  device - see the product specification for your sensor for
+                  details.
+          statuscode ... (ro) Reports the most recent device status, such as
+                  invalid configuration, device reset, CRC failure, and so on.
+                  Please se the RMI4 specification for details.
+          unconfigured ... (ro) This is the opposite of the configured bit,
+                  described above.
+          wakeup_threshold ... (rw) This controls the change in capacitive
+                  signal needed to wake the device from the doze state.  Please
+                  see the RMI4 specification for the F01_RMI_Ctrl3 register
+                  for more details.
+
+      /sensor00.fn11/
+          abs_pos_filt ... (rw) Enables or disables the absolute position
+                  filter feature.  See spec for full details.
+          maxPos ... (rw) Adjusts the  maximum X and Y position control
+                  registers (F11_2D_Ctrl6 through F11_2D_Ctrl9).  See spec for
+                  full details.
+          relreport ... (rw) Enables or disabled relative finger motion
+                  reporting.  See spec for full details.
+          rezero ... (wo) Force recalibration of the F11 2D sensor(s).  See
+                  spec for full details.
+

@@ -1,0 +1,99 @@
+What:		/sys/kernel/debug/rmi/devices
+Date:		October 2012
+KernelVersion:	3.x
+Contact:	Christopher Heiny <cheiny@synaptics.com>
+Description:
+
+  The RMI4 driver implementation exposes a set of informational and control
+  parameters via debugfs.  These parameters are those that typically are only
+  viewed or adjusted during product development, tuning, and debug.
+  For parameters that are  referenced and/or adjusted during normal operation,
+  please see sysfs-rmi4 in this directory.
+
+  General debugging parameters for a particular RMI4 sensor are found in
+  /sys/kernel/debug/rmi/sensorXX/, where XX is a the device's ID as a two
+  digit number (padded with leading zeros).  Function specific parameters
+  for an RMI4 sensor are found in /sys/kernel/debug/rmi/devices/FYY/, where
+  XX is a the device's ID as a two digit number (padded with leading zeros)
+  and YY is the hexdecimal function number (for example, F11 for RMI function
+  F11).
+
+  For RMI4 functions that support multiple sensor instances (such as F11),
+  the parameters for individual sensors have .Z appended to them, where Z is
+  the index of the sensor instance (for example, clip.0, clip.1, clip.2, and
+  so on).
+
+  Some of the parameters exposed here are described in detail in the
+  RMI4 Specification, which is found here:
+    http://www.synaptics.com/sites/default/files/511-000136-01_revD.pdf
+  For such parameters, we'll reference you to that document, rather than
+  copying the contents here.
+
+  /sys/kernel/debug/rmi/
+      /sensorXX/
+          attn_count - (ro) Shows the number of ATTN interrupts handled so far.
+          comms_debug - (rw) Write 1 to this dump information about register
+                  reads and writes to the console.  Write 0 to this to turn
+                  this feature off.  WARNING: Imposes a major performance
+                  penalty when turned on.
+          irq_debug - (rw) Write 1 to this dump information about interrupts
+                  to the console.  Write 0 to this to turn this feature off.
+                  WARNIG: Imposes a major performance penalty when turned on.
+          phys - (ro) Presents information about the physical connection of
+                  this device.  It has one line, with the format:
+
+                       prot tx_count tx_bytes tx_errors rx_count rx_bytes rx_errors attn
+
+                  Where
+                       prot is one of i2c, spi1, or spi2
+                       tx_count is the number of write operations
+                       tx_bytes is the number of bytes written
+                       tx_errors is the number of write operations that encountered errors
+                       rx_count is the number of read operations
+                       rx_bytes is the total number of bytes read
+                       rx_errors is the number of read operations that encountered errors
+
+                  All counts are 64-bit unsigned values, and are set to zero
+                  when the physical layer driver is initialized.
+
+      /sensorXX/F01/
+          interrupt_enable - (rw) allows you to read or modify the F01
+                  interrupt enable mask (the F01_RMI_Ctrl1 register(s)).
+
+      /sensorXX/F11/
+          clip.Z - (rw) Controls in-driver coordinate clipping for the 2D
+                  sensor Z.  This is a set of four unsigned values in the
+                  range [0..65535], representing the lower bounds on X, the
+                  upper bounds on X, the lower bounds on Y, and the upper
+                  bounds on Y.  Coordinates will be clipped to these ranges.
+                  If enabled, clip is the final transformation to be applied
+                  to the coordinates. The default upper and lower bounds for
+                  clip are 0 and 65535 respectively for both axes.
+          delta_threshold.Z - (rw) Controls the F11 distance thresholds. This
+                  contains two values, corresponding to F11_2D_Ctrl2 and
+                  F11_2D_Ctrl3.  Se the spec for more details.
+          flip.Z - (rw) This parameter is a pair of single binary digits (for
+                  example, "0 0" or "1 0"), corresponding to the X and Y axis.
+                  Writing a 1 for a particular axis will invert the coordinates
+                  reported by the device along that axis.  For example writing
+                  "0 1" to this parameter will flip the Y axis top to bottom,
+                  but leave the X axis unchanged.  If enabled, flip is applied
+                  after swap and before offset.
+          offset.Z - (rw) This is a pair of values that will be SUBTRACTED
+                  from the X and Y coordinates, respectively.  If non-zero,
+                  offset will be applied after flip and before clip.  The
+                  default value for offset is 0 for both X and Y.
+          rezero_wait - (rw) If non-zero, F11 will wait this many milliseconds
+                  after exiting suspend mode before recalibrating the sensor(s).
+                  This is useful in systems were there may be unusual
+                  electrical conditions during the resume process, allowing
+                  you to delay recalibration until the electrical environment
+                  has stabilized.
+          swap.Z - (rw) Writing 1 to this parameter swaps the X and Y axis as
+                  reported by the sensor instance Z, rotating the reported
+                  coordinates by 90 degrees.  This can be useful when
+                  installing a landscape sensor over a portrait display, for
+                  example. The default state for this parameter is 0.  If
+                  enabled, swap is applied before any other transformation.
+          type_a - (rw) Most RMI4 F11 implementations support MT-B reporting.
+                  You can write 1 to this parameter to force MT-A reporting.
