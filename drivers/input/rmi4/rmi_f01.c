@@ -1265,28 +1265,12 @@ static struct rmi_function_handler function_handler = {
 #endif  /* CONFIG_PM */
 };
 
-static int __init rmi_f01_module_init(void)
+int __init rmi_register_f01_handler(void)
 {
-	int error;
-
-	error = driver_register(&function_handler.driver);
-	if (error < 0) {
-		pr_err("%s: register failed!\n", __func__);
-		return error;
-	}
-
-	return 0;
+	return driver_register(&function_handler.driver);
 }
 
-static void __exit rmi_f01_module_exit(void)
+void __exit rmi_unregister_f01_handler(void)
 {
 	driver_unregister(&function_handler.driver);
 }
-
-module_init(rmi_f01_module_init);
-module_exit(rmi_f01_module_exit);
-
-MODULE_AUTHOR("Christopher Heiny <cheiny@synaptics.com>");
-MODULE_DESCRIPTION("RMI F01 module");
-MODULE_LICENSE("GPL");
-MODULE_VERSION(RMI_DRIVER_VERSION);

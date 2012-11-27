@@ -136,4 +136,10 @@ extern void rmi4_fw_update(struct rmi_device *rmi_dev,
 #define rmi4_fw_update(rmi_dev, f01_pdt, f34_pdt)
 #endif
 
+int rmi_register_sensor_driver(void);
+void rmi_unregister_sensor_driver(void);
+
+int rmi_register_f01_handler(void);
+void rmi_unregister_f01_handler(void);
+
 #endif

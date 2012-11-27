@@ -206,6 +206,27 @@ static int __init rmi_bus_init(void)
 
 	mutex_init(&rmi_bus_mutex);
 
+	error = bus_register(&rmi_bus_type);
+	if (error) {
+		pr_err("%s: error registering the RMI bus: %d\n",
+			__func__, error);
+		return error;
+	}
+
+	error = rmi_register_f01_handler();
+	if (error) {
+		pr_err("%s: error registering the RMI F01 handler: %d\n",
+			__func__, error);
+		goto err_unregister_bus;
+	}
+
+	error = rmi_register_sensor_driver();
+	if (error) {
+		pr_err("%s: error registering the RMI sensor driver: %d\n",
+			__func__, error);
+		goto err_unregister_f01;
+	}
+
 	if (IS_ENABLED(CONFIG_RMI4_DEBUG)) {
 		rmi_debugfs_root = debugfs_create_dir(rmi_bus_type.name, NULL);
 		if (!rmi_debugfs_root)
@@ -218,24 +239,26 @@ static int __init rmi_bus_init(void)
 		}
 	}
 
-	error = bus_register(&rmi_bus_type);
-	if (error < 0) {
-		pr_err("%s: error registering the RMI bus: %d\n", __func__,
-		       error);
-		return error;
-	}
-	pr_debug("%s: successfully registered RMI bus.\n", __func__);
-
 	return 0;
+
+err_unregister_f01:
+	rmi_unregister_f01_handler();
+err_unregister_bus:
+	bus_unregister(&rmi_bus_type);
+	return error;
 }
 
 static void __exit rmi_bus_exit(void)
 {
-	/* We should only ever get here if all drivers are unloaded, so
+	/*
+	 * We should only ever get here if all drivers are unloaded, so
 	 * all we have to do at this point is unregister ourselves.
 	 */
 	if (IS_ENABLED(CONFIG_RMI4_DEBUG) && rmi_debugfs_root)
 		debugfs_remove(rmi_debugfs_root);
+
+	rmi_unregister_sensor_driver();
+	rmi_unregister_f01_handler();
 	bus_unregister(&rmi_bus_type);
 }
 

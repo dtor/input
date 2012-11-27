@@ -1608,7 +1608,7 @@ static int __devinit rmi_driver_probe(struct device *dev)
 static UNIVERSAL_DEV_PM_OPS(rmi_driver_pm, rmi_driver_suspend,
 			    rmi_driver_resume, NULL);
 
-static struct rmi_driver sensor_driver = {
+static struct rmi_driver rmi_sensor_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "rmi_generic",
@@ -1624,38 +1624,30 @@ static struct rmi_driver sensor_driver = {
 	.set_input_params = rmi_driver_set_input_params,
 };
 
-static int __init rmi_driver_init(void)
+int __init rmi_register_sensor_driver(void)
 {
-	int retval;
+	int error;
 
-	retval = driver_register(&sensor_driver.driver);
-	if (retval) {
+	error = driver_register(&rmi_sensor_driver.driver);
+	if (error) {
 		pr_err("%s: driver register failed, code=%d.\n", __func__,
-		       retval);
-		return retval;
+		       error);
+		return error;
 	}
 
 	/* Ask the bus to let us know when drivers are bound to devices. */
-	retval = bus_register_notifier(&rmi_bus_type, &rmi_bus_notifier);
-	if (retval) {
+	error = bus_register_notifier(&rmi_bus_type, &rmi_bus_notifier);
+	if (error) {
 		pr_err("%s: failed to register bus notifier, code=%d.\n",
-		       __func__, retval);
-		return retval;
+		       __func__, error);
+		return error;
 	}
 
-	return retval;
+	return 0;
 }
 
-static void __exit rmi_driver_exit(void)
+void __exit rmi_unregister_sensor_driver(void)
 {
 	bus_unregister_notifier(&rmi_bus_type, &rmi_bus_notifier);
-	driver_unregister(&sensor_driver.driver);
+	driver_unregister(&rmi_sensor_driver.driver);
 }
-
-module_init(rmi_driver_init);
-module_exit(rmi_driver_exit);
-
-MODULE_AUTHOR("Christopher Heiny <cheiny@synaptics.com");
-MODULE_DESCRIPTION("RMI generic driver");
-MODULE_LICENSE("GPL");
-MODULE_VERSION(RMI_DRIVER_VERSION);

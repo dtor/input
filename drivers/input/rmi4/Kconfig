@@ -1,8 +1,8 @@
 #
 # RMI4 configuration
 #
-config RMI4_BUS
-	bool "Synaptics RMI4 bus support"
+config RMI4_CORE
+	tristate "Synaptics RMI4 bus support"
 	help
 	  Say Y here if you want to support the Synaptics RMI4 bus.  This is
 	  required for all RMI4 device support.
@@ -13,7 +13,7 @@ config RMI4_BUS
 
 config RMI4_DEBUG
 	bool "RMI4 Debugging"
-	depends on RMI4_BUS
+	depends on RMI4_CORE
 	select DEBUG_FS
 	help
 	  Say Y here to enable debug feature in the RMI4 driver.
@@ -26,8 +26,8 @@ config RMI4_DEBUG
 	  If unsure, say N.
 
 config RMI4_I2C
-	bool "RMI4 I2C Support"
-	depends on RMI4_BUS && I2C
+	tristate "RMI4 I2C Support"
+	depends on RMI4_CORE && I2C
 	help
 	  Say Y here if you want to support RMI4 devices connected to an I2C
 	  bus.
@@ -36,20 +36,9 @@ config RMI4_I2C
 
 	  This feature is not currently available as a loadable module.
 
-config RMI4_GENERIC
-	bool "RMI4 Generic driver"
-	depends on RMI4_BUS
-	help
-	  Say Y here if you want to support generic RMI4 devices.
-
-	  This is pretty much required if you want to do anything useful with
-	  your RMI device.
-
-	  This feature is not currently available as a loadable module.
-
 config RMI4_F11
 	tristate "RMI4 Function 11 (2D pointing)"
-	depends on RMI4_BUS && RMI4_GENERIC
+	depends on RMI4_CORE
 	help
 	  Say Y here if you want to add support for RMI4 function 11.
 
